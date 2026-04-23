@@ -10,6 +10,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from config import get_settings
 from db.models import init_db
+from ingestion.embedder import ensure_collection
 from routers.upload import router as upload_router
 from routers.query import router as query_router
 from routers.ws import router as ws_router
@@ -25,6 +26,8 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.upload_dir, exist_ok=True)
     await init_db()
     logger.info("database_initialized")
+    await ensure_collection()
+    logger.info("vector_store_initialized")
     yield
     # Shutdown
     logger.info("shutting_down")

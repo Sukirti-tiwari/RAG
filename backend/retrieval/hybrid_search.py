@@ -6,7 +6,7 @@ import math
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue, SearchParams
 from rank_bm25 import BM25Okapi
-from ingestion.embedder import embed_texts, get_qdrant
+from ingestion.embedder import embed_texts, get_qdrant, ensure_collection
 from config import get_settings
 import structlog
 
@@ -118,6 +118,7 @@ async def hybrid_search(
     3. RRF fusion
     Returns top_k fused results.
     """
+    await ensure_collection()
     k = top_k or settings.top_k_retrieval
     half_k = max(k // 2, 5)
 
