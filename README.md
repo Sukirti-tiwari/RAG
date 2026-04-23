@@ -11,7 +11,7 @@ Data Sources (PDF/DOCX/CSV/URL)
         ↓
   Recursive text chunker (512 tok, 50 overlap)
         ↓
-  OpenAI text-embedding-3-small
+  Local Sentence-Transformers (all-MiniLM-L6-v2)
         ↓
   Qdrant (vector store) + PostgreSQL (metadata)
         ↓
@@ -21,7 +21,7 @@ Data Sources (PDF/DOCX/CSV/URL)
         ↓
   Prompt builder (numbered citations)
         ↓
-  Claude API (streaming via WebSocket)
+  Groq API (streaming via WebSocket)
         ↓
   React + Vite frontend
 ```
@@ -34,9 +34,9 @@ Data Sources (PDF/DOCX/CSV/URL)
 | Vector DB | Qdrant |
 | Metadata DB | PostgreSQL 16 |
 | Cache | Redis 7 |
-| Embeddings | OpenAI text-embedding-3-small |
+| Embeddings | Local Sentence-Transformers (all-MiniLM-L6-v2) |
 | Reranker | Cohere rerank-english-v3.0 |
-| LLM | Claude (claude-sonnet-4) |
+| LLM | Groq (Llama-3.3-70b-versatile) |
 | Frontend | React 18 + Vite + TailwindCSS |
 | Containerization | Docker + Docker Compose |
 
@@ -213,14 +213,15 @@ Each retrieved chunk is numbered [1], [2], etc. in the prompt. Claude is instruc
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ANTHROPIC_API_KEY` | Claude API key | required |
-| `OPENAI_API_KEY` | OpenAI key for embeddings | required |
+| `GROQ_API_KEY` | Groq API key | required |
 | `COHERE_API_KEY` | Cohere key for reranking | optional |
+| `EMBEDDING_MODEL` | Local model name | all-MiniLM-L6-v2 |
+| `EMBEDDING_DIM` | Model output dimension | 384 |
 | `CHUNK_SIZE` | Tokens per chunk | 512 |
 | `CHUNK_OVERLAP` | Overlap between chunks | 50 |
 | `TOP_K_RETRIEVAL` | Candidates from hybrid search | 20 |
 | `TOP_K_RERANK` | Final chunks after reranking | 5 |
-| `LLM_MODEL` | Claude model to use | claude-sonnet-4-20250514 |
+| `LLM_MODEL` | Groq model to use | llama-3.3-70b-versatile |
 | `REDIS_CACHE_TTL` | Cache TTL in seconds | 3600 |
 
 ## Supported File Types
