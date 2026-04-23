@@ -7,7 +7,7 @@ import tiktoken
 from config import get_settings
 
 settings = get_settings()
-_enc = tiktoken.encoding_for_model("text-embedding-3-small")
+_enc = tiktoken.get_encoding("cl100k_base")
 
 
 def count_tokens(text: str) -> int:

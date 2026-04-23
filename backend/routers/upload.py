@@ -32,25 +32,28 @@ class UrlIngestRequest(BaseModel):
 async def run_ingestion(doc_id: str, path: str, is_url: bool = False):
     """Background task: load → chunk → embed → store."""
     from db.models import AsyncSessionLocal
+    import uuid
     async with AsyncSessionLocal() as db:
         try:
+            doc_uuid = uuid.UUID(doc_id)
             # Load
             pages = load_document(path)
             if not pages:
-                raise ValueError("No content extracted from document")
+                raise ValueError("No content extracted from document. Is it an empty or scanned PDF?")
 
             # Chunk
             chunks = chunk_pages(pages)
             if not chunks:
-                raise ValueError("No chunks produced from document")
+                raise ValueError("No chunks produced from document content.")
 
             # Embed + upsert to Qdrant
+            logger.info("ingestion_embedding_start", doc_id=doc_id, chunks=len(chunks))
             qdrant_ids = await upsert_chunks(doc_id, chunks)
 
             # Save chunks to DB
             for chunk, qid in zip(chunks, qdrant_ids):
                 db.add(Chunk(
-                    document_id=doc_id,
+                    document_id=doc_uuid,
                     chunk_index=chunk["chunk_index"],
                     content=chunk["content"],
                     token_count=chunk.get("token_count", 0),
@@ -59,23 +62,28 @@ async def run_ingestion(doc_id: str, path: str, is_url: bool = False):
                 ))
 
             # Mark document ready
-            result = await db.execute(select(Document).where(Document.id == doc_id))
+            result = await db.execute(select(Document).where(Document.id == doc_uuid))
             doc = result.scalar_one_or_none()
             if doc:
                 doc.total_chunks = len(chunks)
                 doc.status = "ready"
+                doc.error_message = None
 
             await db.commit()
             logger.info("ingestion_complete", doc_id=doc_id, chunks=len(chunks))
 
         except Exception as e:
             logger.error("ingestion_failed", doc_id=doc_id, error=str(e))
-            result = await db.execute(select(Document).where(Document.id == doc_id))
-            doc = result.scalar_one_or_none()
-            if doc:
-                doc.status = "error"
-                doc.error_message = str(e)
-            await db.commit()
+            try:
+                doc_uuid = uuid.UUID(doc_id)
+                result = await db.execute(select(Document).where(Document.id == doc_uuid))
+                doc = result.scalar_one_or_none()
+                if doc:
+                    doc.status = "error"
+                    doc.error_message = str(e)
+                await db.commit()
+            except Exception as db_e:
+                logger.error("ingestion_error_update_failed", error=str(db_e))
 
 
 @router.post("/upload")
@@ -161,23 +169,23 @@ async def list_documents(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/documents/{doc_id}/status")
-async def document_status(doc_id: str, db: AsyncSession = Depends(get_db)):
+async def document_status(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Document).where(Document.id == doc_id))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Document not found")
-    return {"id": doc_id, "status": doc.status, "chunks": doc.total_chunks, "error": doc.error_message}
+    return {"id": str(doc_id), "status": doc.status, "chunks": doc.total_chunks, "error": doc.error_message}
 
 
 @router.delete("/documents/{doc_id}")
-async def delete_document(doc_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Document).where(Document.id == doc_id))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Document not found")
 
     # Remove from Qdrant
-    await delete_doc_vectors(doc_id)
+    await delete_doc_vectors(str(doc_id))
 
     # Remove file if local
     if doc.file_type != "url":

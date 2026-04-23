@@ -36,11 +36,15 @@ class Settings(BaseSettings):
     # RAG tuning
     chunk_size: int = 512
     chunk_overlap: int = 50
+    # Embedding: "all-MiniLM-L6-v2" (384d) is local via Hugging Face. 
+    # Use "text-embedding-3-small" (1536d) for OpenAI.
     embedding_model: str = "all-MiniLM-L6-v2"
     embedding_dim: int = 384
     top_k_retrieval: int = 20
     top_k_rerank: int = 5
-    llm_model: str = "claude-sonnet-4-20250514"
+    # LLM: "llama3-70b-8192" or "mixtral-8x7b-32768" for Groq.
+    # Provider is detected by model name (claude->Anthropic, gpt->OpenAI, else Groq).
+    llm_model: str = "llama3-70b-8192"
     llm_max_tokens: int = 2048
 
     @property
