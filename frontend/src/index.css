@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --scrollbar-thumb: #cbd5e1;
+    --scrollbar-track: #f1f5f9;
+  }
+  .dark {
+    --scrollbar-thumb: #334155;
+    --scrollbar-track: #0f172a;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+  *::-webkit-scrollbar { width: 6px; height: 6px; }
+  *::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+  *::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+  .animate-slide-up {
+    animation: slideUp 0.25s ease-out;
+  }
+  .animate-pulse-dot {
+    animation: pulseDot 1.2s ease-in-out infinite;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulseDot {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50%       { opacity: 1;   transform: scale(1); }
+  }
+}
+
+/* Markdown content styles */
+.prose-rag h1,h2,h3 { @apply font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2; }
+.prose-rag h1 { @apply text-xl; }
+.prose-rag h2 { @apply text-lg; }
+.prose-rag h3 { @apply text-base; }
+.prose-rag p  { @apply text-gray-800 dark:text-gray-200 leading-relaxed mb-3; }
+.prose-rag ul,ol { @apply pl-5 mb-3 space-y-1; }
+.prose-rag li { @apply text-gray-800 dark:text-gray-200; }
+.prose-rag ul li { list-style-type: disc; }
+.prose-rag ol li { list-style-type: decimal; }
+.prose-rag code:not(pre code) {
+  @apply bg-gray-100 dark:bg-gray-800 text-pink-600 dark:text-pink-400
+         px-1 py-0.5 rounded text-sm font-mono;
+}
+.prose-rag pre {
+  @apply bg-gray-900 dark:bg-gray-950 rounded-lg p-4 overflow-x-auto mb-3;
+}
+.prose-rag blockquote {
+  @apply border-l-4 border-brand-500 pl-4 italic text-gray-600 dark:text-gray-400 my-3;
+}
+.prose-rag table { @apply w-full border-collapse text-sm mb-3; }
+.prose-rag th { @apply bg-gray-100 dark:bg-gray-800 px-3 py-2 text-left font-semibold border border-gray-200 dark:border-gray-700; }
+.prose-rag td { @apply px-3 py-2 border border-gray-200 dark:border-gray-700; }
+.prose-rag a  { @apply text-brand-500 hover:underline; }

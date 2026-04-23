@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Environment
+.env
+!.env.example
+
+# Uploads
+backend/uploads/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Docker volumes
+.docker/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
