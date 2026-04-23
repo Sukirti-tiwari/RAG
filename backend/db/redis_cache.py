@@ -24,11 +24,14 @@ def _cache_key(question: str, doc_filter: str | None = None) -> str:
 
 
 async def get_cached(question: str, doc_filter: str | None = None) -> dict | None:
-    r = await get_redis()
-    key = _cache_key(question, doc_filter)
-    val = await r.get(key)
-    if val:
-        return json.loads(val)
+    try:
+        r = await get_redis()
+        key = _cache_key(question, doc_filter)
+        val = await r.get(key)
+        if val:
+            return json.loads(val)
+    except Exception as e:
+        logger.warning("redis_get_failed", error=str(e))
     return None
 
 
@@ -38,9 +41,12 @@ async def set_cache(
     doc_filter: str | None = None,
     ttl: int | None = None,
 ) -> None:
-    r = await get_redis()
-    key = _cache_key(question, doc_filter)
-    await r.setex(key, ttl or settings.redis_cache_ttl, json.dumps(response))
+    try:
+        r = await get_redis()
+        key = _cache_key(question, doc_filter)
+        await r.setex(key, ttl or settings.redis_cache_ttl, json.dumps(response))
+    except Exception as e:
+        logger.warning("redis_set_failed", error=str(e))
 
 
 async def invalidate_cache(doc_id: str | None = None) -> int:

@@ -2,6 +2,7 @@
 Production RAG - FastAPI backend entry point.
 """
 import os
+import asyncio
 import structlog
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -15,6 +16,15 @@ from routers.upload import router as upload_router
 from routers.query import router as query_router
 from routers.ws import router as ws_router
 
+# Configure structlog
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.add_log_level,
+        structlog.processors.JSONRenderer() if os.getenv("APP_ENV") == "production" else structlog.dev.ConsoleRenderer(),
+    ],
+)
+
 settings = get_settings()
 logger = structlog.get_logger()
 
@@ -24,10 +34,35 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("starting_up", env=settings.app_env)
     os.makedirs(settings.upload_dir, exist_ok=True)
-    await init_db()
-    logger.info("database_initialized")
-    await ensure_collection()
-    logger.info("vector_store_initialized")
+    
+    # Retry database initialization
+    retries = 5
+    while retries > 0:
+        try:
+            await init_db()
+            logger.info("database_initialized")
+            break
+        except Exception as e:
+            retries -= 1
+            logger.error("database_connection_failed", error=str(e), retries_left=retries)
+            if retries == 0:
+                raise
+            await asyncio.sleep(2)
+
+    # Retry vector store initialization
+    retries = 5
+    while retries > 0:
+        try:
+            await ensure_collection()
+            logger.info("vector_store_initialized")
+            break
+        except Exception as e:
+            retries -= 1
+            logger.error("vector_store_connection_failed", error=str(e), retries_left=retries)
+            if retries == 0:
+                raise
+            await asyncio.sleep(2)
+            
     yield
     # Shutdown
     logger.info("shutting_down")
