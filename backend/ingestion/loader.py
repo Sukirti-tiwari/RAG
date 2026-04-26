@@ -138,9 +138,16 @@ def load_url(url: str) -> list[dict]:
 
 def load_document(path: str, file_type: SupportedType | None = None) -> list[dict]:
     """Main entry point. Returns list of page/section dicts."""
-    if path.startswith("http://") or path.startswith("https://"):
-        logger.info("loading_url", url=path)
-        return load_url(path)
+    # Check if it's a URL
+    is_url_type = file_type == "url"
+    is_url_path = path.startswith(("http://", "https://"))
+    
+    if is_url_type or is_url_path:
+        url = path
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+        logger.info("loading_url", url=url)
+        return load_url(url) /url 
 
     ftype = file_type or detect_type(path)
     logger.info("loading_document", path=path, type=ftype)
