@@ -147,7 +147,7 @@ def load_document(path: str, file_type: SupportedType | None = None) -> list[dic
         if not url.startswith(("http://", "https://")):
             url = f"https://{url}"
         logger.info("loading_url", url=url)
-        return load_url(url) /url 
+        return load_url(url)
 
     ftype = file_type or detect_type(path)
     logger.info("loading_document", path=path, type=ftype)
