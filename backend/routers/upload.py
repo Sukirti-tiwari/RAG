@@ -32,12 +32,13 @@ class UrlIngestRequest(BaseModel):
 async def run_ingestion(doc_id: str, path: str, is_url: bool = False):
     """Background task: load → chunk → embed → store."""
     from db.models import AsyncSessionLocal
-    import uuid
+    from uuid import UUID
     async with AsyncSessionLocal() as db:
         try:
-            doc_uuid = uuid.UUID(doc_id)
-            # Load
-            pages = load_document(path)
+            uid = UUID(doc_id)
+            # Load - wrap blocking call in thread
+            ftype = "url" if is_url else None
+            pages = await asyncio.to_thread(load_document, path, ftype)
             if not pages:
                 raise ValueError("No content extracted from document. Is it an empty or scanned PDF?")
 
@@ -53,7 +54,7 @@ async def run_ingestion(doc_id: str, path: str, is_url: bool = False):
             # Save chunks to DB
             for chunk, qid in zip(chunks, qdrant_ids):
                 db.add(Chunk(
-                    document_id=doc_uuid,
+                    document_id=uid,
                     chunk_index=chunk["chunk_index"],
                     content=chunk["content"],
                     token_count=chunk.get("token_count", 0),
@@ -62,7 +63,7 @@ async def run_ingestion(doc_id: str, path: str, is_url: bool = False):
                 ))
 
             # Mark document ready
-            result = await db.execute(select(Document).where(Document.id == doc_uuid))
+            result = await db.execute(select(Document).where(Document.id == uid))
             doc = result.scalar_one_or_none()
             if doc:
                 doc.total_chunks = len(chunks)
@@ -75,8 +76,7 @@ async def run_ingestion(doc_id: str, path: str, is_url: bool = False):
         except Exception as e:
             logger.error("ingestion_failed", doc_id=doc_id, error=str(e))
             try:
-                doc_uuid = uuid.UUID(doc_id)
-                result = await db.execute(select(Document).where(Document.id == doc_uuid))
+                result = await db.execute(select(Document).where(Document.id == UUID(doc_id)))
                 doc = result.scalar_one_or_none()
                 if doc:
                     doc.status = "error"
@@ -132,12 +132,20 @@ async def ingest_url(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
+    url = req.url.strip()
+    if not url.startswith(("http://", "https://")):
+        url = f"https://{url}"
+
+    # Truncate for DB columns (String(512))
+    filename = url[:512]
+    original_name = (req.name or url)[:512]
+
     doc = Document(
-        filename=req.url,
-        original_name=req.name or req.url,
+        filename=filename,
+        original_name=original_name,
         file_type="url",
         file_size=0,
-        source_url=req.url,
+        source_url=url,
         status="processing",
     )
     db.add(doc)
@@ -145,9 +153,9 @@ async def ingest_url(
     await db.refresh(doc)
 
     doc_id = str(doc.id)
-    background_tasks.add_task(run_ingestion, doc_id, req.url, is_url=True)
+    background_tasks.add_task(run_ingestion, doc_id, url, is_url=True)
 
-    return {"id": doc_id, "name": req.name or req.url, "status": "processing"}
+    return {"id": doc_id, "name": original_name, "status": "processing"}
 
 
 @router.get("/documents")
@@ -169,8 +177,14 @@ async def list_documents(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/documents/{doc_id}/status")
-async def document_status(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Document).where(Document.id == doc_id))
+async def document_status(doc_id: str, db: AsyncSession = Depends(get_db)):
+    from uuid import UUID
+    try:
+        uid = UUID(doc_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid UUID format")
+
+    result = await db.execute(select(Document).where(Document.id == uid))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Document not found")
@@ -178,8 +192,14 @@ async def document_status(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db))
 
 
 @router.delete("/documents/{doc_id}")
-async def delete_document(doc_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Document).where(Document.id == doc_id))
+async def delete_document(doc_id: str, db: AsyncSession = Depends(get_db)):
+    from uuid import UUID
+    try:
+        uid = UUID(doc_id)
+    except ValueError:
+        raise HTTPException(400, "Invalid UUID format")
+
+    result = await db.execute(select(Document).where(Document.id == uid))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Document not found")
